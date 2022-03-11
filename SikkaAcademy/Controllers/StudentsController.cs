@@ -24,9 +24,28 @@ namespace SikkaAcademy.Controllers
         }
 
         // GET: Students
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string sortOrder)
         {
-            return View(await _context.Students.ToListAsync());
+            var studentData = from s in _context.Students
+                              select s;
+
+            switch (sortOrder)
+            {
+                case "date_desc":
+                    studentData = studentData.OrderByDescending(s => s.EnrollmentDate);
+                    break;
+                case "last_name_desc":
+                    studentData = studentData.OrderByDescending(s => s.LastName);
+                    break;
+                case "first_name_desc":
+                    studentData = studentData.OrderByDescending(s => s.FirstName);
+                    break;
+                default:
+                    studentData = studentData.OrderByDescending(s => s.LastName);
+                    break;
+            }
+
+            return View(studentData);
         }
 
         // GET: Students/Details/5
