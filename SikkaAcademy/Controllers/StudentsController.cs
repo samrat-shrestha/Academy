@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SikkaAcademy.Data;
 using SikkaAcademy.Models;
 
@@ -13,10 +14,13 @@ namespace SikkaAcademy.Controllers
     public class StudentsController : Controller
     {
         private readonly SchoolContext _context;
+        private readonly ILogger _logger;
 
-        public StudentsController(SchoolContext context)
+        public StudentsController(SchoolContext context,
+                                    ILogger<Student> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // GET: Students
@@ -124,7 +128,7 @@ namespace SikkaAcademy.Controllers
         }
 
         // GET: Students/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int? id, bool? saveError = false)
         {
             if (id == null)
             {
@@ -132,10 +136,16 @@ namespace SikkaAcademy.Controllers
             }
 
             var student = await _context.Students
+                .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.ID == id);
             if (student == null)
             {
                 return NotFound();
+            }
+
+            if (saveError.GetValueOrDefault())
+            {
+                ViewData["ErrorMessage"] = "Delete failed. Try again, and if the problem persists see your admininstrator.";
             }
 
             return View(student);
@@ -147,9 +157,23 @@ namespace SikkaAcademy.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var student = await _context.Students.FindAsync(id);
-            _context.Students.Remove(student);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+
+            if (student == null)
+            {
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                _context.Students.Remove(student);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,"Unable to delete the selected data.");
+                return RedirectToAction(nameof(Delete), new { id = id, saveError = true });
+            }
         }
 
         private bool StudentExists(int id)
